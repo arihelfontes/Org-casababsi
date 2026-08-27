@@ -542,7 +542,7 @@ const DEFAULT_TASKS = [
 ];
 
 let state = {
-  people: ["Pessoa 1","Pessoa 2"],
+  people: ["Você"],
   tasks: [],
   weekCounter: 1,
   weekKey: null,
@@ -550,8 +550,8 @@ let state = {
   theme: { paper: "#EDEFE8", ink: "#233229", personColors: ["#3F7D6E", "#B15C68"] },
   history: [], // {id, date:'YYYY-MM-DD', person, effort, minutes, name, batchId?, penalty?} — pode ser negativo (penalidade)
   weekArchive: [], // pilha de snapshots para "Voltar semana" (multi-nível)
-  pause: [false, false], // modo férias/pausa por pessoa (array de tamanho == número de pessoas)
-  helpCount: [0, 0], // quantas vezes cada pessoa foi marcada como "ajudante" numa tarefa alheia
+  pause: [false], // modo férias/pausa por pessoa (array de tamanho == número de pessoas)
+  helpCount: [0], // quantas vezes cada pessoa foi marcada como "ajudante" numa tarefa alheia
   cardStyle: 'default', // 'default' | 'notebook' | 'sticky' | 'torn'
   appTitle: 'Mutirão da Casa',
   appSubtitle: 'Tarefas espalhadas pela semana — sem sobrecarregar o fim de semana.',
@@ -660,7 +660,7 @@ function isDayAllowed(task, d){
 
 // ====== PREVISÃO DO TEMPO ======
 // Open-Meteo: API gratuita, sem chave, com CORS liberado.
-const WEATHER_DEFAULT_LOC = { name: 'Butantã, São Paulo', lat: -23.571, lon: -46.708 };
+const WEATHER_DEFAULT_LOC = { name: 'Santo André, São Paulo', lat: -23.6739, lon: -46.5383 };
 const WEATHER_PAST_DAYS = 6; // cobre até segunda-feira, mesmo se "hoje" for domingo
 let weatherList = []; // array na ordem da API: índice WEATHER_PAST_DAYS = hoje
 function daysBetween(a, b){
@@ -746,7 +746,7 @@ function updateWeatherCityLabel(){
 
 // ====== CONFIGURAÇÃO DO BANCO (Firebase Realtime Database) ======
 // Troque pela URL do SEU banco (veja instruções de configuração).
-const FIREBASE_DB_URL = "https://org-casa-4223f-default-rtdb.firebaseio.com";
+const FIREBASE_DB_URL = "https://org-casababsi-default-rtdb.firebaseio.com";
 const DB_PATH = "/mutirao-da-casa.json";
 const NOT_CONFIGURED = FIREBASE_DB_URL.includes("SEU-PROJETO");
 let pollHandle = null;
@@ -1016,9 +1016,9 @@ function renderPeople(){
   const pause = state.pause || [];
 
   row.innerHTML = state.people.map((name,i)=>{
-    const isLeader = !tie && totals[i]===maxTotal && maxTotal>0;
+    const isLeader = state.people.length>1 && !tie && totals[i]===maxTotal && maxTotal>0;
     const isPaused = !!pause[i];
-    const canRemove = state.people.length > 2;
+    const canRemove = state.people.length > 1;
     return `
     <div class="person-pin ${isPaused?'paused':''}" data-person="${i}">
       <span class="dot" style="background:var(--person${i})"></span>
@@ -1051,7 +1051,7 @@ function renderPeople(){
   row.querySelectorAll('[data-act="remove"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const i = +btn.dataset.person;
-      if(state.people.length<=2){ showToast('⚠ Precisa ter pelo menos duas pessoas.'); return; }
+      if(state.people.length<=1){ showToast('⚠ Precisa ter pelo menos uma pessoa.'); return; }
       if(!confirm(`Remover ${state.people[i]}? As tarefas dela nesta semana vão para a primeira pessoa da lista.`)) return;
       removePerson(i);
     });
@@ -1490,7 +1490,7 @@ function renderStatsContent(){
   if(statsRange==='week'){
     const stats = computeStats();
     const grandTotalEffort = Math.max(1, stats.reduce((s,x)=>s+x.totalEffort,0));
-    const leader = argmaxLeader(stats.map(s=>s.doneEffort));
+    const leader = state.people.length>1 ? argmaxLeader(stats.map(s=>s.doneEffort)) : -1;
     content.innerHTML = stats.map((s,p)=>{
       const pct = Math.round((s.totalEffort / grandTotalEffort) * 100);
       const color = `var(--person${p})`;
@@ -1516,7 +1516,7 @@ function renderStatsContent(){
   const periodLabel = statsRange==='month' ? 'neste mês' : 'neste ano';
   const stats = computeHistoryStats(filterFn);
   const grandTotal = Math.max(1, stats.reduce((s,x)=>s+x.effort,0));
-  const leader = argmaxLeader(stats.map(s=>s.effort));
+  const leader = state.people.length>1 ? argmaxLeader(stats.map(s=>s.effort)) : -1;
 
   content.innerHTML = stats.map((s,p)=>{
     const pct = Math.round((s.effort / grandTotal) * 100);
